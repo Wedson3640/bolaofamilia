@@ -1,11 +1,11 @@
-import { createClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
 
-// Fallback vazio evita erro "supabaseUrl is required" durante o prerender do build.
-// Em runtime (dev e produção) as env vars reais estão presentes.
+// createBrowserClient (do @supabase/ssr) salva a sessão em cookies (não localStorage),
+// permitindo que server components e route handlers leiam a sessão normalmente.
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co";
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "placeholder";
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createBrowserClient(supabaseUrl, supabaseKey);
 
 // ─── Tipos do banco ──────────────────────────────────────────────────────────
 
