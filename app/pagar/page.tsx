@@ -178,7 +178,7 @@ export default function PagarPage() {
               <h2 className="text-2xl font-black text-green-600">com sucesso! 🎉</h2>
             </div>
             <div className="bg-green-50 border border-green-200 rounded-2xl px-6 py-3 w-full">
-              <p className="text-sm text-green-700 font-semibold">✅ R$ 1,00 confirmado via PIX</p>
+              <p className="text-sm text-green-700 font-semibold">✅ R$ 5,00 confirmado via PIX</p>
               <p className="text-xs text-green-600 mt-0.5">bolaofamilia.online — Copa 2026</p>
             </div>
             <p className="text-gray-400 text-sm">Preparando seu bolão…</p>
@@ -219,7 +219,7 @@ export default function PagarPage() {
             Quase lá{userName ? `, ${userName}` : ""}!
           </h1>
           <p className="text-green-200 text-sm mt-1">
-            Pague <strong>R$ 1,00</strong> via PIX para liberar seu bolão
+            Pague <strong>R$ 5,00</strong> via PIX para liberar seu bolão
           </p>
         </div>
 
@@ -308,7 +308,7 @@ export default function PagarPage() {
                   )}
                 </div>
                 <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-                  QR Code PIX — R$ 1,00
+                  QR Code PIX — R$ 5,00
                 </span>
               </div>
 
