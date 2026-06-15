@@ -39,28 +39,50 @@ export async function POST(req: NextRequest) {
     const { event, payment } = body;
     console.log(`[webhook/asaas] evento=${event} payment=${payment?.id}`);
 
-    // ── PAYMENT_RECEIVED → libera acesso ─────────────────────────────────────
-    if (event === "PAYMENT_RECEIVED" && payment?.externalReference) {
-      const userId = payment.externalReference;
+    const userId = payment?.externalReference;
 
+    // ── PAYMENT_RECEIVED → libera acesso ─────────────────────────────────────
+    if (event === "PAYMENT_RECEIVED" && userId) {
       const { error } = await supabaseAdmin()
         .from("usuarios_bolao")
-        .update({
-          pago:    true,
-          pago_em: new Date().toISOString(),
-        })
+        .update({ pago: true, pago_em: new Date().toISOString() })
         .eq("user_id", userId);
 
       if (error) {
-        console.error("[webhook/asaas] erro ao atualizar usuario:", error);
+        console.error("[webhook/asaas] erro RECEIVED:", error);
         return NextResponse.json({ error: "Erro ao liberar acesso" }, { status: 500 });
       }
-
-      console.log(`[webhook/asaas] ✅ acesso liberado para user_id=${userId}`);
+      console.log(`[webhook/asaas] ✅ RECEIVED — acesso liberado user_id=${userId}`);
     }
 
-    // Outros eventos (OVERDUE, DELETED, REFUNDED) — apenas loga por ora
-    // Futuramente: marcar cobrança como vencida/estornada se necessário
+    // ── PAYMENT_OVERDUE | PAYMENT_DELETED → PIX venceu, limpa QR ────────────
+    // Usuário poderá gerar novo PIX na próxima visita à /pagar
+    if ((event === "PAYMENT_OVERDUE" || event === "PAYMENT_DELETED") && userId) {
+      const { error } = await supabaseAdmin()
+        .from("usuarios_bolao")
+        .update({ asaas_cobranca_id: null, asaas_pix_qr_code: null })
+        .eq("user_id", userId)
+        .eq("pago", false); // só limpa se ainda não pagou
+
+      if (error) console.error(`[webhook/asaas] erro ${event}:`, error);
+      else console.log(`[webhook/asaas] ⏰ ${event} — QR expirado limpo user_id=${userId}`);
+    }
+
+    // ── PAYMENT_REFUNDED → estorno, revoga acesso ─────────────────────────────
+    if (event === "PAYMENT_REFUNDED" && userId) {
+      const { error } = await supabaseAdmin()
+        .from("usuarios_bolao")
+        .update({
+          pago:              false,
+          pago_em:           null,
+          asaas_cobranca_id: null,
+          asaas_pix_qr_code: null,
+        })
+        .eq("user_id", userId);
+
+      if (error) console.error("[webhook/asaas] erro REFUNDED:", error);
+      else console.log(`[webhook/asaas] 🔄 REFUNDED — acesso revogado user_id=${userId}`);
+    }
 
     return NextResponse.json({ received: true });
 
