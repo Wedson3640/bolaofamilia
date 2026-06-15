@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
 
     const cobranca = await criarCobrancaPix({
       customerId,
-      valor:             0.49,
+      valor:             1.00,
       descricao:         "bolaofamilia.online — Acesso Copa 2026",
       externalReference: user.id,   // ⭐ chave para o webhook identificar o user
       expirarHoras:      24,
