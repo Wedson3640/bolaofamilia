@@ -16,7 +16,18 @@ function mascaraCpf(v: string) {
 }
 
 // ── Estados possíveis da tela ─────────────────────────────────────────────────
-type Tela = "cpf" | "gerando" | "pix" | "confirmado";
+type Tela = "cpf" | "gerando" | "pix" | "confirmado" | "redirecionando";
+
+const pageBg =
+  "min-h-screen flex items-center justify-center p-4";
+
+const pageStyle = {
+  background:
+    "radial-gradient(circle at 18% 18%, rgba(34,197,94,0.20), transparent 30%), radial-gradient(circle at 82% 12%, rgba(0,87,255,0.16), transparent 32%), linear-gradient(135deg, #001030 0%, #001847 44%, #002B6B 100%)",
+};
+
+const cardClass =
+  "bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-white/20";
 
 export default function PagarPage() {
   const router = useRouter();
@@ -51,7 +62,16 @@ export default function PagarPage() {
     });
   }, [router]);
 
-  // ── Realtime: redireciona quando pago=true ────────────────────────────────────
+  // ── Sequência de popups após confirmação ────────────────────────────────────
+  function iniciarConfirmacao() {
+    setTela("confirmado");                       // popup 1: "Pagamento realizado!"
+    setTimeout(() => {
+      setTela("redirecionando");                 // popup 2: "Aguarde…"
+      setTimeout(() => router.push("/dashboard/novo"), 3000);
+    }, 3000);
+  }
+
+  // ── Realtime: dispara quando pago=true ───────────────────────────────────────
   useEffect(() => {
     if (!userId) return;
 
@@ -60,17 +80,31 @@ export default function PagarPage() {
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "usuarios_bolao", filter: `user_id=eq.${userId}` },
-        (payload) => {
-          if (payload.new?.pago) {
-            setTela("confirmado");
-            setTimeout(() => router.push("/dashboard"), 2000);
-          }
-        },
+        (payload) => { if (payload.new?.pago) iniciarConfirmacao(); },
       )
       .subscribe();
 
     return () => { supabase.removeChannel(canal); };
-  }, [userId, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  // ── Fallback polling (caso o Realtime falhe) ────────────────────────────────
+  useEffect(() => {
+    if (!userId || tela !== "pix") return;
+
+    const intervalo = setInterval(async () => {
+      const { data } = await supabase
+        .from("usuarios_bolao")
+        .select("pago")
+        .eq("user_id", userId)
+        .single();
+
+      if (data?.pago) iniciarConfirmacao();
+    }, 5000);
+
+    return () => clearInterval(intervalo);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, tela]);
 
   // ── Gera cobrança via API ──────────────────────────────────────────────────────
   async function gerarPix() {
@@ -108,29 +142,67 @@ export default function PagarPage() {
 
   const sair = async () => { await supabase.auth.signOut(); router.push("/"); };
 
-  // ── Confirmado ─────────────────────────────────────────────────────────────────
-  if (tela === "confirmado") {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-10 max-w-sm w-full text-center flex flex-col items-center gap-4">
-          <span className="text-6xl">🎉</span>
-          <h2 className="text-2xl font-black text-green-700">Pagamento confirmado!</h2>
-          <p className="text-gray-500 text-sm">Redirecionando para o dashboard…</p>
-          <svg className="animate-spin w-6 h-6 text-green-600 mt-2" viewBox="0 0 24 24" fill="none">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-          </svg>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+    <div className={pageBg} style={pageStyle}>
+
+      {/* ── POPUP 1: Pagamento realizado com sucesso ──────────────────────────── */}
+      {tela === "confirmado" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-8 flex flex-col items-center gap-5 text-center animate-in fade-in zoom-in-95 duration-300">
+            {/* Ícone animado */}
+            <div className="relative flex items-center justify-center">
+              <div className="absolute w-24 h-24 rounded-full bg-green-100 animate-ping opacity-40" />
+              <div className="relative w-20 h-20 rounded-full bg-green-500 flex items-center justify-center shadow-lg">
+                <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            </div>
+            <div>
+              <h2 className="text-2xl font-black text-gray-800">Pagamento realizado</h2>
+              <h2 className="text-2xl font-black text-green-600">com sucesso! 🎉</h2>
+            </div>
+            <div className="bg-green-50 border border-green-200 rounded-2xl px-6 py-3 w-full">
+              <p className="text-sm text-green-700 font-semibold">✅ R$ 49,90 confirmado via PIX</p>
+              <p className="text-xs text-green-600 mt-0.5">bolaofamilia.online — Copa 2026</p>
+            </div>
+            <p className="text-gray-400 text-sm">Preparando seu bolão…</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── POPUP 2: Redirecionando ───────────────────────────────────────────── */}
+      {tela === "redirecionando" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-[#0b1024] border border-white/10 rounded-3xl shadow-2xl w-full max-w-sm p-8 flex flex-col items-center gap-5 text-center">
+            {/* Spinner */}
+            <div className="w-16 h-16 rounded-full border-4 border-emerald-400/30 border-t-emerald-400 animate-spin" />
+            <div>
+              <p className="text-white font-black text-lg">Aguarde…</p>
+              <p className="text-slate-400 text-sm mt-1.5 leading-5">
+                Você será redirecionado para a<br />
+                <strong className="text-emerald-400">página de configuração do bolão</strong>
+              </p>
+            </div>
+            {/* Barra de progresso */}
+            <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
+              <div className="h-full bg-emerald-400 rounded-full animate-[width_3s_linear_forwards]"
+                   style={{ animation: "progress 3s linear forwards" }} />
+            </div>
+            <style>{`
+              @keyframes progress {
+                from { width: 0% }
+                to   { width: 100% }
+              }
+            `}</style>
+          </div>
+        </div>
+      )}
+
+      <div className={cardClass}>
 
         {/* Header */}
-        <div className="bg-green-700 px-6 py-5 text-white text-center">
+        <div className="bg-[linear-gradient(135deg,#006B35_0%,#009344_52%,#002B6B_100%)] px-6 py-5 text-white text-center">
           <div className="text-4xl mb-2">🏆</div>
           <h1 className="font-black text-xl">
             Quase lá{userName ? `, ${userName}` : ""}!
@@ -222,6 +294,9 @@ export default function PagarPage() {
                   )}
                 </div>
               </div>
+              <p className="text-center text-xs font-semibold uppercase tracking-wide text-gray-500">
+                QR Code PIX Asaas
+              </p>
 
               {/* Copia e cola */}
               {qrCode && (

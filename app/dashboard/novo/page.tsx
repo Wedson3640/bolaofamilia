@@ -298,6 +298,9 @@ export default function NovoBolaoPage() {
                 <p className="text-gray-400 text-xs mt-1">
                   Gere pelo app do banco → &quot;Cobrar via PIX&quot; → copie o código.
                 </p>
+                <p className="text-gray-400 text-xs mt-1">
+                  A confirmação do PIX dos apostadores será manual pelo admin do bolão.
+                </p>
               </div>
             </div>
           </div>

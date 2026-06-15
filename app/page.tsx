@@ -127,7 +127,7 @@ export default function Home() {
                 alt="Taça Copa do Mundo"
                 width={224}
                 height={320}
-                className="object-contain drop-shadow-2xl"
+                className="object-contain drop-shadow-2xl w-full h-auto"
                 unoptimized
               />
             </div>
@@ -193,6 +193,7 @@ export default function Home() {
                 src="/images/familia.png"
                 alt="Família assistindo futebol"
                 fill
+                sizes="(max-width: 640px) 100vw, 50vw"
                 className="object-cover object-center transition duration-500 group-hover:scale-105"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#050816] via-[#050816]/50 to-transparent" />
@@ -208,6 +209,7 @@ export default function Home() {
                 src="/images/taça.png"
                 alt="Taça Copa do Mundo"
                 fill
+                sizes="(max-width: 640px) 100vw, 50vw"
                 className="object-contain object-center p-4 transition duration-500 group-hover:scale-105 drop-shadow-2xl"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#050816]/90 via-transparent to-transparent" />

@@ -1,7 +1,15 @@
 import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+
+function supabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+}
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
@@ -45,11 +53,16 @@ export async function GET(request: NextRequest) {
   }
 
   // Verifica se já tem registro de pagamento
-  const { data: registro } = await supabase
+  const admin = supabaseAdmin();
+
+  const { data: registros } = await admin
     .from("usuarios_bolao")
     .select("pago")
     .eq("user_id", user.id)
-    .maybeSingle();
+    .order("pago", { ascending: false })
+    .limit(1);
+
+  const registro = registros?.[0];
 
   if (registro?.pago) {
     return NextResponse.redirect(new URL("/dashboard", origin));
@@ -57,7 +70,7 @@ export async function GET(request: NextRequest) {
 
   // Cria registro se for a primeira vez
   if (!registro) {
-    await supabase.from("usuarios_bolao").insert({
+    await admin.from("usuarios_bolao").insert({
       user_id: user.id,
       email: user.email ?? "",
       nome: user.user_metadata?.full_name ?? "",
@@ -65,5 +78,5 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  return NextResponse.redirect(new URL("/pagar", origin));
+  return NextResponse.redirect(new URL("/checkout", origin));
 }

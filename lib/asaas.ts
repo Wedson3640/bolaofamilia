@@ -65,6 +65,17 @@ export interface CobrancaPixResult {
   pixImagem:   string;   // base64 PNG do QR Code
 }
 
+export async function buscarQrCodePix(paymentId: string) {
+  const qr = await asaasFetch<{ payload: string; encodedImage: string }>(
+    `/payments/${paymentId}/pixQrCode`,
+  );
+
+  return {
+    pixPayload: qr.payload,
+    pixImagem:  qr.encodedImage,
+  };
+}
+
 /**
  * Cria uma cobrança PIX no Asaas.
  * externalReference = user_id do Supabase (usado no webhook para identificar quem pagou).
@@ -100,14 +111,12 @@ export async function criarCobrancaPix({
   });
 
   // 2. Busca o QR Code
-  const qr = await asaasFetch<{ payload: string; encodedImage: string }>(
-    `/payments/${payment.id}/pixQrCode`,
-  );
+  const qr = await buscarQrCodePix(payment.id);
 
   return {
     id:         payment.id,
     dueDate:    payment.dueDate,
-    pixPayload: qr.payload,
-    pixImagem:  qr.encodedImage,
+    pixPayload: qr.pixPayload,
+    pixImagem:  qr.pixImagem,
   };
 }

@@ -26,9 +26,10 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getSession() lê o JWT do cookie localmente — sem chamada de rede ao Supabase.
+  // Evita falha de SSL em ambiente local e loop de redirect.
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
 
   const path = request.nextUrl.pathname;
 
@@ -37,9 +38,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Já logado — não precisa ver a tela de login
+  // Já logado — não exibe login novamente
   if (path === "/login" && user) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return NextResponse.redirect(new URL("/pagar", request.url));
   }
 
   return response;

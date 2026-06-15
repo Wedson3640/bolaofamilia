@@ -67,8 +67,7 @@ export default function BolaoPublicoPage({
 
   // Admin
   const [adminLogado, setAdminLogado] = useState(false);
-  const [mostrarLogin, setMostrarLogin] = useState(false);
-  const [senhaInput, setSenhaInput] = useState("");
+  const [donoLogado, setDonoLogado] = useState(false);
   const [mostrarPendentes, setMostrarPendentes] = useState(false);
   const [confirmarExcluir, setConfirmarExcluir] = useState<number | null>(null);
 
@@ -145,6 +144,16 @@ export default function BolaoPublicoPage({
     return () => { supabase.removeChannel(canal); };
   }, [bolao?.id, buscarParticipantes]);
 
+  useEffect(() => {
+    if (!bolao?.user_id) return;
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      const ehDono = user?.id === bolao.user_id;
+      setDonoLogado(ehDono);
+      if (!ehDono) setAdminLogado(false);
+    });
+  }, [bolao?.user_id]);
+
   // ── CRUD ─────────────────────────────────────────────────────────────────
   const togglePagamento = async (id: number) => {
     if (!adminLogado) return;
@@ -197,13 +206,6 @@ export default function BolaoPublicoPage({
     enviandoRef.current = false;
   };
 
-  const fazerLogin = (senhaAdmin: string) => {
-    // Senha = primeiros 8 chars do user_id do bolão (solução simples para MVP)
-    if (senhaInput === senhaAdmin) {
-      setAdminLogado(true); setMostrarLogin(false); setSenhaInput("");
-    } else { alert("Senha incorreta!"); }
-  };
-
   // ── Renderização ──────────────────────────────────────────────────────────
 
   if (carregando) {
@@ -242,9 +244,6 @@ export default function BolaoPublicoPage({
   const arrecadado = pagantes.length * Number(bolao.valor_cota);
   const taxaAdmin = arrecadado * (Number(bolao.taxa_admin_pct) / 100);
   const premioTotal = arrecadado - taxaAdmin;
-  // Senha admin = 8 primeiros chars do id do bolão (MVP)
-  const senhaAdmin = bolao.id.replace(/-/g, "").slice(0, 8);
-
   return (
     <div className="min-h-screen bg-gray-100">
 
@@ -350,30 +349,32 @@ export default function BolaoPublicoPage({
         {/* Barra de ações */}
         <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
           <h2 className="text-gray-700 text-base sm:text-xl font-bold">📋 Planilha</h2>
+          {donoLogado && (
           <div className="flex gap-2">
             {adminLogado ? (
               <button
                 onClick={() => setAdminLogado(false)}
                 className="bg-red-500 hover:bg-red-600 text-white font-bold px-4 py-2 rounded-lg text-sm shadow transition-all"
               >
-                🔓 Sair Admin
+                Fechar aprovações
               </button>
             ) : (
               <button
-                onClick={() => setMostrarLogin(true)}
+                onClick={() => setAdminLogado(true)}
                 className="bg-white hover:bg-gray-50 text-green-700 font-bold px-4 py-2 rounded-lg text-sm shadow transition-all border border-green-300"
               >
-                🔐 Admin
+                Aprovar pagamentos
               </button>
             )}
           </div>
+          )}
         </div>
 
         {/* Painel admin */}
         {adminLogado && (
           <div className="mb-4 flex flex-col gap-3">
             <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 font-semibold text-sm px-4 py-2 rounded-lg inline-flex items-center gap-2 self-start">
-              ✅ Modo Admin — clique no status para alterar o pagamento
+              Modo aprovação — clique no status para aprovar ou desfazer pagamentos
             </div>
             <button
               onClick={() => setMostrarPendentes((v) => !v)}
@@ -610,8 +611,8 @@ export default function BolaoPublicoPage({
         <div className="mt-3 flex gap-3 justify-center flex-wrap text-gray-500 text-xs sm:text-sm">
           <div className="flex items-center gap-1"><span className="text-green-600 font-bold">✅</span><span>Pago</span></div>
           <div className="flex items-center gap-1"><span className="text-red-500 font-bold">✕</span><span>Pendente</span></div>
-          {!adminLogado && (
-            <div className="flex items-center gap-1 text-gray-400"><span>🔐</span><span>Admin altera o status</span></div>
+          {donoLogado && !adminLogado && (
+            <div className="flex items-center gap-1 text-gray-400"><span>🔐</span><span>Dono aprova pagamentos</span></div>
           )}
         </div>
 
@@ -622,31 +623,6 @@ export default function BolaoPublicoPage({
       </main>
 
       {/* ══════════════════ MODAIS ══════════════════ */}
-
-      {/* Modal login admin */}
-      {mostrarLogin && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 shadow-2xl w-80">
-            <h3 className="text-green-800 font-black text-xl mb-4 text-center">🔐 Área do Admin</h3>
-            <input
-              type="password"
-              placeholder="Senha do bolão"
-              value={senhaInput}
-              onChange={(e) => setSenhaInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && fazerLogin(senhaAdmin)}
-              className="w-full border-2 border-green-300 rounded-lg px-3 py-2 mb-3 focus:outline-none focus:border-green-600 text-gray-800"
-              autoFocus
-            />
-            <p className="text-gray-400 text-xs mb-3 text-center">
-              A senha é fornecida ao criar o bolão
-            </p>
-            <div className="flex gap-2">
-              <button onClick={() => fazerLogin(senhaAdmin)} className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-lg">Entrar</button>
-              <button onClick={() => { setMostrarLogin(false); setSenhaInput(""); }} className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 rounded-lg">Cancelar</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Modal apostar */}
       {mostrarApostar && (

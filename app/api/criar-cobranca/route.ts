@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
-import { getOrCreateCustomer, criarCobrancaPix } from "@/lib/asaas";
+import { getOrCreateCustomer, criarCobrancaPix, buscarQrCodePix } from "@/lib/asaas";
 
 // Supabase admin (service role) — necessário para contornar RLS no webhook
 function supabaseAdmin() {
@@ -28,11 +28,18 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Verifica se já tem cobrança ou já pagou ──────────────────────────────
-    const { data: registro } = await supabaseAdmin()
+    const admin = supabaseAdmin();
+
+    const { data: registro, error: registroError } = await admin
       .from("usuarios_bolao")
       .select("pago, asaas_cobranca_id, asaas_pix_qr_code")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
+
+    if (registroError) {
+      console.error("[criar-cobranca] SELECT usuarios_bolao:", registroError);
+      return NextResponse.json({ error: "Erro ao verificar cadastro" }, { status: 500 });
+    }
 
     if (registro?.pago) {
       return NextResponse.json({ error: "Acesso já liberado" }, { status: 400 });
@@ -40,10 +47,38 @@ export async function POST(req: NextRequest) {
 
     // Reutiliza cobrança existente (evita duplicatas)
     if (registro?.asaas_pix_qr_code) {
+      let qrCode = registro.asaas_pix_qr_code;
+      let qrImagem: string | undefined;
+
+      if (registro.asaas_cobranca_id) {
+        try {
+          const qr = await buscarQrCodePix(registro.asaas_cobranca_id);
+          qrCode = qr.pixPayload;
+          qrImagem = qr.pixImagem;
+        } catch (err) {
+          console.warn("[criar-cobranca] QR existente sem imagem Asaas:", err);
+        }
+      }
+
       return NextResponse.json({
-        qrCode:    registro.asaas_pix_qr_code,
+        qrCode,
+        qrImagem,
         cobrancaId: registro.asaas_cobranca_id,
       });
+    }
+
+    if (!registro) {
+      const { error: insertError } = await admin.from("usuarios_bolao").insert({
+        user_id: user.id,
+        email: user.email ?? "",
+        nome: user.user_metadata?.full_name ?? user.user_metadata?.name ?? "",
+        pago: false,
+      });
+
+      if (insertError) {
+        console.error("[criar-cobranca] INSERT usuarios_bolao:", insertError);
+        return NextResponse.json({ error: "Erro ao criar cadastro" }, { status: 500 });
+      }
     }
 
     // ── Cria customer + cobrança no Asaas ───────────────────────────────────
@@ -62,7 +97,7 @@ export async function POST(req: NextRequest) {
     });
 
     // ── Salva no banco ────────────────────────────────────────────────────────
-    await supabaseAdmin()
+    await admin
       .from("usuarios_bolao")
       .update({
         asaas_cobranca_id: cobranca.id,
