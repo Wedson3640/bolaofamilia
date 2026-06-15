@@ -64,11 +64,11 @@ export default function PagarPage() {
 
   // ── Sequência de popups após confirmação ────────────────────────────────────
   function iniciarConfirmacao() {
-    setTela("confirmado");                       // popup 1: "Pagamento realizado!"
+    setTela("confirmado");                       // popup 1: "Pagamento realizado!" — 4s
     setTimeout(() => {
-      setTela("redirecionando");                 // popup 2: "Aguarde…"
-      setTimeout(() => router.push("/dashboard/novo"), 3000);
-    }, 3000);
+      setTela("redirecionando");                 // popup 2: "Aguarde…" — 4s → redireciona
+      setTimeout(() => router.push("/dashboard/novo"), 4000);
+    }, 4000);
   }
 
   // ── Realtime: dispara quando pago=true ───────────────────────────────────────
@@ -186,14 +186,14 @@ export default function PagarPage() {
             </div>
             {/* Barra de progresso */}
             <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
-              <div className="h-full bg-emerald-400 rounded-full animate-[width_3s_linear_forwards]"
-                   style={{ animation: "progress 3s linear forwards" }} />
+              <div className="progress-bar h-full bg-emerald-400 rounded-full" />
             </div>
             <style>{`
               @keyframes progress {
                 from { width: 0% }
                 to   { width: 100% }
               }
+              .progress-bar { animation: progress 4s linear forwards; }
             `}</style>
           </div>
         </div>

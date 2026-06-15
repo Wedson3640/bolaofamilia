@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import { useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Trophy } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
@@ -13,6 +13,7 @@ type Modo = "entrar" | "cadastrar";
 function LoginForm() {
   const params    = useSearchParams();
   const erroParam = params.get("erro");
+  const router    = useRouter();
 
   const [modo,          setModo]          = useState<Modo>("entrar");
   const [email,         setEmail]         = useState("");
@@ -22,18 +23,42 @@ function LoginForm() {
   const [erroLocal,     setErroLocal]     = useState("");
   const [mensagem,      setMensagem]      = useState("");
 
-  // ── Redireciona após login bem-sucedido ──────────────────────────────────────
+  // ── Redireciona após login — lógica 100% client-side (sem SSL) ───────────────
   async function redirecionarAposLogin() {
     try {
-      const res = await fetch("/api/auth/pos-login", { method: "POST" });
-      const data = (await res.json()) as { redirectTo?: string; error?: string };
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setErroLocal("Sessão não encontrada. Tente novamente."); return; }
 
-      if (!res.ok || !data.redirectTo) {
-        setErroLocal(data.error ?? "Erro ao preparar redirecionamento.");
+      const { data: registro, error: selErr } = await supabase
+        .from("usuarios_bolao")
+        .select("pago")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (selErr) {
+        console.error("[login] SELECT:", selErr);
+        setErroLocal(`Erro ao verificar cadastro: ${selErr.message}`);
         return;
       }
 
-      window.location.assign(data.redirectTo);
+      if (!registro) {
+        const { error: insErr } = await supabase.from("usuarios_bolao").insert({
+          user_id: user.id,
+          email:   user.email ?? "",
+          nome:    user.user_metadata?.full_name ?? email.split("@")[0],
+          pago:    false,
+        });
+        if (insErr) {
+          console.error("[login] INSERT:", insErr);
+          setErroLocal(`Erro ao criar perfil: ${insErr.message}`);
+          return;
+        }
+        router.push("/pagar");
+      } else if (registro.pago) {
+        router.push("/dashboard");
+      } else {
+        router.push("/pagar");
+      }
     } catch (e) {
       console.error("[login] redirecionarAposLogin:", e);
       setErroLocal("Erro inesperado. Tente novamente.");
