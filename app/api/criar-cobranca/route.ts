@@ -15,13 +15,15 @@ export async function POST(req: NextRequest) {
   try {
     const { cpf } = (await req.json()) as { cpf: string };
 
-    if (!cpf || cpf.replace(/\D/g, "").length < 11) {
-      return NextResponse.json({ error: "CPF inválido" }, { status: 400 });
+    const cpfLimpo = cpf?.replace(/\D/g, "") ?? "";
+    if (cpfLimpo.length !== 11 && cpfLimpo.length !== 14) {
+      return NextResponse.json({ error: "CPF ou CNPJ inválido" }, { status: 400 });
     }
 
-    // ── Usuário autenticado ──────────────────────────────────────────────────
+    // ── Usuário autenticado (getSession lê JWT do cookie — sem chamada de rede) ──
     const supabase = await createSupabaseServerClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
 
     if (!user) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
@@ -84,13 +86,12 @@ export async function POST(req: NextRequest) {
     // ── Cria customer + cobrança no Asaas ───────────────────────────────────
     const nome  = user.user_metadata?.full_name ?? user.user_metadata?.name ?? "Cliente";
     const email = user.email ?? "";
-    const cpfLimpo = cpf.replace(/\D/g, "");
 
     const customerId = await getOrCreateCustomer(nome, email, cpfLimpo);
 
     const cobranca = await criarCobrancaPix({
       customerId,
-      valor:             49.90,
+      valor:             0.49,
       descricao:         "bolaofamilia.online — Acesso Copa 2026",
       externalReference: user.id,   // ⭐ chave para o webhook identificar o user
       expirarHoras:      24,

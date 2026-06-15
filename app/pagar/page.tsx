@@ -5,21 +5,26 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-// ── Máscara de CPF ─────────────────────────────────────────────────────────────
-function mascaraCpf(v: string) {
-  return v
-    .replace(/\D/g, "")
-    .slice(0, 11)
+// ── Máscara CPF (11 dígitos) ou CNPJ (14 dígitos) ────────────────────────────
+function mascaraCpfCnpj(v: string) {
+  const nums = v.replace(/\D/g, "").slice(0, 14);
+  if (nums.length <= 11) {
+    return nums
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+  }
+  return nums
+    .replace(/(\d{2})(\d)/, "$1.$2")
     .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+    .replace(/(\d{3})(\d)/, "$1/$2")
+    .replace(/(\d{4})(\d{1,2})$/, "$1-$2");
 }
 
 // ── Estados possíveis da tela ─────────────────────────────────────────────────
 type Tela = "cpf" | "gerando" | "pix" | "confirmado" | "redirecionando";
 
-const pageBg =
-  "min-h-screen flex items-center justify-center p-4";
+const pageBg = "min-h-screen flex items-center justify-center p-4";
 
 const pageStyle = {
   background:
@@ -32,15 +37,15 @@ const cardClass =
 export default function PagarPage() {
   const router = useRouter();
 
-  const [userName, setUserName]   = useState("");
-  const [userId, setUserId]       = useState<string | null>(null);
-  const [tela, setTela]           = useState<Tela>("cpf");
-  const [cpf, setCpf]             = useState("");
-  const [cpfErro, setCpfErro]     = useState("");
-  const [qrCode, setQrCode]       = useState("");      // copia-e-cola
-  const [qrImagem, setQrImagem]   = useState("");      // base64
-  const [copiado, setCopiado]     = useState(false);
-  const [erroApi, setErroApi]     = useState("");
+  const [userName, setUserName] = useState("");
+  const [userId,   setUserId]   = useState<string | null>(null);
+  const [tela,     setTela]     = useState<Tela>("cpf");
+  const [cpfCnpj,  setCpfCnpj] = useState("");
+  const [inputErr, setInputErr] = useState("");
+  const [qrCode,   setQrCode]   = useState("");   // copia-e-cola (EMV)
+  const [qrImagem, setQrImagem] = useState("");   // base64 PNG do Asaas
+  const [copiado,  setCopiado]  = useState(false);
+  const [erroApi,  setErroApi]  = useState("");
 
   // ── Carrega usuário ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -49,7 +54,7 @@ export default function PagarPage() {
       setUserName(user.user_metadata?.full_name?.split(" ")[0] ?? "");
       setUserId(user.id);
 
-      // Se já tem QR code no banco, pula a etapa do CPF
+      // Se já tem QR ou já pagou, pula etapa do CPF
       supabase
         .from("usuarios_bolao")
         .select("pago, asaas_pix_qr_code")
@@ -64,14 +69,14 @@ export default function PagarPage() {
 
   // ── Sequência de popups após confirmação ────────────────────────────────────
   function iniciarConfirmacao() {
-    setTela("confirmado");                       // popup 1: "Pagamento realizado!" — 4s
+    setTela("confirmado");                     // popup 1 — 4 s
     setTimeout(() => {
-      setTela("redirecionando");                 // popup 2: "Aguarde…" — 4s → redireciona
+      setTela("redirecionando");               // popup 2 — 4 s → redirect
       setTimeout(() => router.push("/dashboard/novo"), 4000);
     }, 4000);
   }
 
-  // ── Realtime: dispara quando pago=true ───────────────────────────────────────
+  // ── Realtime: dispara quando pago=true ──────────────────────────────────────
   useEffect(() => {
     if (!userId) return;
 
@@ -79,7 +84,12 @@ export default function PagarPage() {
       .channel(`pago_${userId}`)
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "usuarios_bolao", filter: `user_id=eq.${userId}` },
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "usuarios_bolao",
+          filter: `user_id=eq.${userId}`,
+        },
         (payload) => { if (payload.new?.pago) iniciarConfirmacao(); },
       )
       .subscribe();
@@ -88,7 +98,7 @@ export default function PagarPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
-  // ── Fallback polling (caso o Realtime falhe) ────────────────────────────────
+  // ── Fallback polling a cada 5 s (caso Realtime falhe) ────────────────────────
   useEffect(() => {
     if (!userId || tela !== "pix") return;
 
@@ -98,7 +108,6 @@ export default function PagarPage() {
         .select("pago")
         .eq("user_id", userId)
         .single();
-
       if (data?.pago) iniciarConfirmacao();
     }, 5000);
 
@@ -106,23 +115,30 @@ export default function PagarPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, tela]);
 
-  // ── Gera cobrança via API ──────────────────────────────────────────────────────
+  // ── Gera cobrança PIX personalizada via Asaas ────────────────────────────────
   async function gerarPix() {
-    const cpfLimpo = cpf.replace(/\D/g, "");
-    if (cpfLimpo.length !== 11) { setCpfErro("Digite um CPF válido (11 dígitos)."); return; }
-    setCpfErro("");
+    const limpo = cpfCnpj.replace(/\D/g, "");
+    if (limpo.length !== 11 && limpo.length !== 14) {
+      setInputErr("Digite um CPF (11 dígitos) ou CNPJ (14 dígitos) válido.");
+      return;
+    }
+    setInputErr("");
     setErroApi("");
     setTela("gerando");
 
     try {
       const res  = await fetch("/api/criar-cobranca", {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cpf: cpfLimpo }),
+        body:    JSON.stringify({ cpf: limpo }),   // a rota aceita CPF ou CNPJ
       });
       const data = await res.json();
 
-      if (!res.ok) { setErroApi(data.error ?? "Erro ao gerar PIX"); setTela("cpf"); return; }
+      if (!res.ok) {
+        setErroApi(data.error ?? "Erro ao gerar PIX");
+        setTela("cpf");
+        return;
+      }
 
       setQrCode(data.qrCode);
       if (data.qrImagem) setQrImagem(data.qrImagem);
@@ -134,8 +150,8 @@ export default function PagarPage() {
     }
   }
 
-  const copiar = (texto: string) => {
-    navigator.clipboard.writeText(texto);
+  const copiar = () => {
+    navigator.clipboard.writeText(qrCode);
     setCopiado(true);
     setTimeout(() => setCopiado(false), 2500);
   };
@@ -145,11 +161,10 @@ export default function PagarPage() {
   return (
     <div className={pageBg} style={pageStyle}>
 
-      {/* ── POPUP 1: Pagamento realizado com sucesso ──────────────────────────── */}
+      {/* ── POPUP 1: Pagamento confirmado ─────────────────────────────────────── */}
       {tela === "confirmado" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-8 flex flex-col items-center gap-5 text-center animate-in fade-in zoom-in-95 duration-300">
-            {/* Ícone animado */}
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-8 flex flex-col items-center gap-5 text-center">
             <div className="relative flex items-center justify-center">
               <div className="absolute w-24 h-24 rounded-full bg-green-100 animate-ping opacity-40" />
               <div className="relative w-20 h-20 rounded-full bg-green-500 flex items-center justify-center shadow-lg">
@@ -163,7 +178,7 @@ export default function PagarPage() {
               <h2 className="text-2xl font-black text-green-600">com sucesso! 🎉</h2>
             </div>
             <div className="bg-green-50 border border-green-200 rounded-2xl px-6 py-3 w-full">
-              <p className="text-sm text-green-700 font-semibold">✅ R$ 49,90 confirmado via PIX</p>
+              <p className="text-sm text-green-700 font-semibold">✅ R$ 0,49 confirmado via PIX</p>
               <p className="text-xs text-green-600 mt-0.5">bolaofamilia.online — Copa 2026</p>
             </div>
             <p className="text-gray-400 text-sm">Preparando seu bolão…</p>
@@ -175,7 +190,6 @@ export default function PagarPage() {
       {tela === "redirecionando" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
           <div className="bg-[#0b1024] border border-white/10 rounded-3xl shadow-2xl w-full max-w-sm p-8 flex flex-col items-center gap-5 text-center">
-            {/* Spinner */}
             <div className="w-16 h-16 rounded-full border-4 border-emerald-400/30 border-t-emerald-400 animate-spin" />
             <div>
               <p className="text-white font-black text-lg">Aguarde…</p>
@@ -184,37 +198,34 @@ export default function PagarPage() {
                 <strong className="text-emerald-400">página de configuração do bolão</strong>
               </p>
             </div>
-            {/* Barra de progresso */}
             <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
               <div className="progress-bar h-full bg-emerald-400 rounded-full" />
             </div>
             <style>{`
-              @keyframes progress {
-                from { width: 0% }
-                to   { width: 100% }
-              }
+              @keyframes progress { from { width:0% } to { width:100% } }
               .progress-bar { animation: progress 4s linear forwards; }
             `}</style>
           </div>
         </div>
       )}
 
+      {/* ── CARD PRINCIPAL ────────────────────────────────────────────────────── */}
       <div className={cardClass}>
 
-        {/* Header */}
+        {/* Header verde */}
         <div className="bg-[linear-gradient(135deg,#006B35_0%,#009344_52%,#002B6B_100%)] px-6 py-5 text-white text-center">
           <div className="text-4xl mb-2">🏆</div>
           <h1 className="font-black text-xl">
             Quase lá{userName ? `, ${userName}` : ""}!
           </h1>
           <p className="text-green-200 text-sm mt-1">
-            Pague <strong>R$ 49,90</strong> via PIX para liberar seu bolão
+            Pague <strong>R$ 0,49</strong> via PIX para liberar seu bolão
           </p>
         </div>
 
         <div className="px-6 py-6 flex flex-col gap-5">
 
-          {/* ── ETAPA 1: CPF ─────────────────────────────────────────── */}
+          {/* ── ETAPA 1: CPF / CNPJ ──────────────────────────────────────────── */}
           {(tela === "cpf" || tela === "gerando") && (
             <>
               <div className="bg-yellow-50 border border-yellow-300 rounded-xl px-4 py-3 text-sm text-yellow-800 font-semibold text-center">
@@ -223,21 +234,23 @@ export default function PagarPage() {
 
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">
-                  Seu CPF
+                  PIX do pagador
                 </label>
                 <input
                   type="text"
                   inputMode="numeric"
-                  placeholder="000.000.000-00"
-                  value={cpf}
-                  onChange={(e) => { setCpf(mascaraCpf(e.target.value)); setCpfErro(""); }}
+                  placeholder="CPF ou CNPJ do pagador"
+                  value={cpfCnpj}
+                  onChange={(e) => { setCpfCnpj(mascaraCpfCnpj(e.target.value)); setInputErr(""); }}
                   onKeyDown={(e) => e.key === "Enter" && gerarPix()}
                   disabled={tela === "gerando"}
-                  className="w-full border-2 border-gray-200 focus:border-green-500 rounded-xl px-4 py-3 text-gray-800 text-lg font-mono outline-none tracking-wider disabled:opacity-60"
+                  className="w-full border-2 border-gray-200 focus:border-green-500 rounded-xl px-4 py-3 text-gray-800 text-base font-mono outline-none tracking-wider disabled:opacity-60"
                   autoFocus
                 />
-                {cpfErro && <p className="text-red-500 text-xs mt-1 font-semibold">{cpfErro}</p>}
-                <p className="text-gray-400 text-xs mt-1">Necessário para emissão do PIX via Asaas</p>
+                {inputErr && <p className="text-red-500 text-xs mt-1 font-semibold">{inputErr}</p>}
+                <p className="text-gray-400 text-xs mt-1">
+                  Informe o CPF ou CNPJ vinculado à sua chave PIX
+                </p>
               </div>
 
               {erroApi && (
@@ -264,57 +277,60 @@ export default function PagarPage() {
             </>
           )}
 
-          {/* ── ETAPA 2: QR Code gerado ──────────────────────────────── */}
+          {/* ── ETAPA 2: QR Code personalizado ───────────────────────────────── */}
           {tela === "pix" && (
             <>
               <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-800 font-semibold text-center">
                 ✅ PIX gerado! Escaneie ou copie o código abaixo
               </div>
 
-              {/* QR Code — imagem base64 do Asaas ou via API pública */}
-              <div className="flex justify-center">
-                <div className="bg-white p-2 rounded-xl border-2 border-green-300 shadow">
+              {/* QR Code */}
+              <div className="flex flex-col items-center gap-2">
+                <div className="bg-white p-3 rounded-2xl border-2 border-green-400 shadow-md">
                   {qrImagem ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
+                    // imagem base64 do Asaas (melhor qualidade)
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={`data:image/png;base64,${qrImagem}`}
                       alt="QR Code PIX"
-                      width={200}
-                      height={200}
+                      width={220}
+                      height={220}
                     />
                   ) : (
-                    /* Fallback: gera QR via API pública caso não tenha imagem */
-                    /* eslint-disable-next-line @next/next/no-img-element */
+                    // fallback: gera via API pública
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCode)}`}
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(qrCode)}`}
                       alt="QR Code PIX"
-                      width={200}
-                      height={200}
+                      width={220}
+                      height={220}
                     />
                   )}
                 </div>
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                  QR Code PIX — R$ 0,49
+                </span>
               </div>
-              <p className="text-center text-xs font-semibold uppercase tracking-wide text-gray-500">
-                QR Code PIX Asaas
-              </p>
 
               {/* Copia e cola */}
               {qrCode && (
                 <div>
-                  <p className="text-gray-500 text-xs font-semibold mb-1 uppercase tracking-wide">
-                    Ou copia e cola:
+                  <p className="text-gray-500 text-xs font-bold mb-1.5 uppercase tracking-wide">
+                    📋 Pix Copia e Cola
                   </p>
-                  <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
-                    <span className="flex-1 font-mono text-xs text-gray-400 truncate">
-                      {qrCode.slice(0, 44)}…
-                    </span>
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 flex flex-col gap-2">
+                    <p className="font-mono text-[11px] text-gray-500 break-all leading-4 select-all">
+                      {qrCode}
+                    </p>
                     <button
-                      onClick={() => copiar(qrCode)}
-                      className={`shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg transition-all ${
-                        copiado ? "bg-green-500 text-white" : "bg-green-600 hover:bg-green-700 text-white"
+                      onClick={copiar}
+                      className={`w-full text-sm font-black py-2.5 rounded-lg transition-all ${
+                        copiado
+                          ? "bg-green-500 text-white"
+                          : "bg-green-600 hover:bg-green-700 text-white"
                       }`}
                     >
-                      {copiado ? "✅ Copiado!" : "📋 Copiar"}
+                      {copiado ? "✅ Código copiado!" : "📋 Copiar código PIX"}
                     </button>
                   </div>
                 </div>
