@@ -73,7 +73,7 @@ export default function NovoBolaoPage() {
     if (!slugManual && titulo) setSlug(gerarSlug(titulo));
   }, [titulo, slugManual]);
 
-  const salvar = async (e: React.FormEvent) => {
+  const salvar = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (salvando) return;
     setErro("");
@@ -88,22 +88,30 @@ export default function NovoBolaoPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/login"); return; }
 
+    // Pega nome completo do Google OAuth
+    const nomeResponsavel =
+      user.user_metadata?.full_name ??
+      user.user_metadata?.name ??
+      user.email ??
+      null;
+
     const { data, error } = await supabase
       .from("boloes")
       .insert({
-        user_id:       user.id,
-        slug:          slug.toLowerCase().trim(),
+        user_id:          user.id,
+        slug:             slug.toLowerCase().trim(),
         titulo,
-        jogo_time_casa: timeCasa,
-        jogo_time_fora: timeFora,
-        bandeira_casa:  bandeiraCasa || null,
-        bandeira_fora:  bandeiraFora || null,
-        jogo_data:      new Date(jogoData).toISOString(),
-        valor_cota:     parseFloat(valorCota),
-        taxa_admin_pct: parseFloat(taxaAdmin),
-        chave_pix:      chavePix.trim(),
-        payload_pix:    payloadPix.trim() || null,
-        ativo:          true,
+        nome_responsavel: nomeResponsavel,
+        jogo_time_casa:   timeCasa,
+        jogo_time_fora:   timeFora,
+        bandeira_casa:    bandeiraCasa || null,
+        bandeira_fora:    bandeiraFora || null,
+        jogo_data:        new Date(jogoData).toISOString(),
+        valor_cota:       parseFloat(valorCota),
+        taxa_admin_pct:   parseFloat(taxaAdmin),
+        chave_pix:        chavePix.trim(),
+        payload_pix:      payloadPix.trim() || null,
+        ativo:            true,
       })
       .select()
       .single();

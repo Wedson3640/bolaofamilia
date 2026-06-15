@@ -68,7 +68,7 @@ export default function PagarPage() {
           <div className="text-4xl mb-2">🏆</div>
           <h1 className="font-black text-xl">Quase lá{userName ? `, ${userName.split(" ")[0]}` : ""}!</h1>
           <p className="text-green-200 text-sm mt-1">
-            Pague R$ 50,00 via PIX para liberar seu bolão
+            Pague R$ 49,90 via PIX para liberar seu bolão
           </p>
         </div>
 

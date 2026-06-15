@@ -260,6 +260,16 @@ export default function BolaoPublicoPage({
             <span className="text-base">🏆</span>
           </div>
 
+          {/* Nome do responsável */}
+          {bolao.nome_responsavel && (
+            <p className="text-green-200 text-xs font-semibold">
+              👤 Organizado por{" "}
+              <strong className="text-white">
+                {bolao.nome_responsavel.split(" ").slice(0, 2).join(" ")}
+              </strong>
+            </p>
+          )}
+
           {/* Valor da cota */}
           <div className="bg-yellow-400 text-green-900 font-black text-xs px-4 py-0.5 rounded-full shadow border border-yellow-500">
             💰 Cota: R$ {Number(bolao.valor_cota).toFixed(2).replace(".", ",")}
@@ -605,7 +615,7 @@ export default function BolaoPublicoPage({
         </div>
 
         <footer className="text-center mt-8 text-gray-400 text-xs">
-          🏆 {bolao.titulo} · bolao.online
+          🏆 {bolao.titulo} · bolaofamilia.online
         </footer>
 
       </main>

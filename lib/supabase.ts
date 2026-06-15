@@ -12,6 +12,7 @@ export type BolaoRow = {
   user_id: string;
   slug: string;
   titulo: string;
+  nome_responsavel: string | null;   // nome completo do criador do bolão
   jogo_time_casa: string;
   jogo_time_fora: string;
   jogo_data: string;

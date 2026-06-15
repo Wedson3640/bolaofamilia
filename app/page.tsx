@@ -30,7 +30,7 @@ const resources = [
 const steps = [
   {
     icon: CircleDollarSign,
-    title: "Pague R$ 50,00",
+    title: "Pague R$ 49,90",
     description: "Libere o acesso à plataforma com todos os jogos da Copa até a final.",
   },
   {
@@ -286,7 +286,7 @@ export default function Home() {
                 Configure em minutos, compartilhe o link e torça junto com sua família!
               </p>
               <p className="mt-2 flex items-center gap-2 text-sm font-black text-slate-400">
-                <span>🔒</span> Acesso único por R$ 50,00
+                <span>🔒</span> Acesso único por R$ 49,90
               </p>
             </div>
             <CriarAgoraButton className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-emerald-400 px-8 py-4 text-lg font-black text-[#050816] shadow-glow transition hover:scale-[1.03] hover:bg-emerald-300 sm:w-auto md:px-9 md:py-5">
