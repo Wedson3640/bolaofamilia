@@ -4,10 +4,22 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { JOGOS_COPA_2026 } from "@/lib/jogos-copa";
 import Link from "next/link";
 
-// Gera slug a partir do título
+// ── Tipos ─────────────────────────────────────────────────────────────────────
+interface JogoCopa {
+  id:                  number;
+  data:                string;   // "2026-06-13"
+  horario:             string;   // "19:00:00"
+  fase:                string;
+  mandante:            string;
+  visitante:           string;
+  jogo:                string;
+  bandeira_mandante:   string | null;
+  bandeira_visitante:  string | null;
+}
+
+// ── Utilitários ───────────────────────────────────────────────────────────────
 function gerarSlug(texto: string) {
   return texto
     .toLowerCase()
@@ -19,61 +31,90 @@ function gerarSlug(texto: string) {
     .slice(0, 50);
 }
 
-// Formata data ISO para input datetime-local
-function isoParaInput(iso: string) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const offset = d.getTimezoneOffset();
-  const local = new Date(d.getTime() - offset * 60000);
-  return local.toISOString().slice(0, 16);
+function dataHoraParaInput(data: string, horario: string) {
+  // data: "2026-06-13", horario: "19:00:00" → "2026-06-13T19:00"
+  return `${data}T${horario.slice(0, 5)}`;
 }
 
+function formatarDataExibicao(data: string, horario: string) {
+  // "2026-06-13" + "19:00:00" → "13/06 19:00"
+  const [ano, mes, dia] = data.split("-");
+  return `${dia}/${mes}/${ano.slice(2)} ${horario.slice(0, 5)}`;
+}
+
+// ── Página ────────────────────────────────────────────────────────────────────
 export default function NovoBolaoPage() {
   const router = useRouter();
-  const [salvando, setSalvando] = useState(false);
-  const [erro, setErro] = useState("");
+  const [salvando,    setSalvando]    = useState(false);
+  const [erro,        setErro]        = useState("");
+  const [jogos,       setJogos]       = useState<JogoCopa[]>([]);
+  const [loadingJogos, setLoadingJogos] = useState(true);
 
   // Campos do formulário
-  const [jogoId, setJogoId]             = useState<number | "">("");
-  const [titulo, setTitulo]             = useState("");
-  const [slug, setSlug]                 = useState("");
-  const [timeCasa, setTimeCasa]         = useState("");
-  const [timeFora, setTimeFora]         = useState("");
+  const [jogoId,       setJogoId]       = useState<number | "">("");
+  const [titulo,       setTitulo]       = useState("");
+  const [slug,         setSlug]         = useState("");
+  const [timeCasa,     setTimeCasa]     = useState("");
+  const [timeFora,     setTimeFora]     = useState("");
   const [bandeiraCasa, setBandeiraCasa] = useState("");
   const [bandeiraFora, setBandeiraFora] = useState("");
-  const [jogoData, setJogoData]         = useState("");
-  const [valorCota, setValorCota]       = useState("5.00");
-  const [taxaAdmin, setTaxaAdmin]       = useState("25");
-  const [chavePix, setChavePix]         = useState("");
-  const [payloadPix, setPayloadPix]     = useState("");
-  const [slugManual, setSlugManual]     = useState(false);
+  const [jogoData,     setJogoData]     = useState("");
+  const [valorCota,    setValorCota]    = useState("5.00");
+  const [taxaAdmin,    setTaxaAdmin]    = useState("25");
+  const [chavePix,     setChavePix]     = useState("");
+  const [payloadPix,   setPayloadPix]   = useState("");
+  const [slugManual,   setSlugManual]   = useState(false);
 
-  // Auto-preenche campos ao selecionar jogo da Copa
+  // ── Carrega jogos do banco ──────────────────────────────────────────────────
+  useEffect(() => {
+    supabase
+      .from("jogos_copa2026")
+      .select("*")
+      .order("data", { ascending: true })
+      .order("horario", { ascending: true })
+      .then(({ data, error }) => {
+        if (error) console.error("[novo] jogos_copa2026:", error);
+        else setJogos(data ?? []);
+        setLoadingJogos(false);
+      });
+  }, []);
+
+  // ── Auto-gera slug quando título muda ──────────────────────────────────────
+  useEffect(() => {
+    if (!slugManual && titulo) setSlug(gerarSlug(titulo));
+  }, [titulo, slugManual]);
+
+  // ── Seleciona jogo e auto-preenche campos ───────────────────────────────────
   const selecionarJogo = (id: number | "") => {
     setJogoId(id);
-    if (id === "" || id === 99) {
-      if (id === 99) { setTimeCasa(""); setTimeFora(""); setBandeiraCasa(""); setBandeiraFora(""); setJogoData(""); }
+
+    if (id === "") return;
+
+    // Jogo personalizado
+    if (id === -1) {
+      setTimeCasa(""); setTimeFora("");
+      setBandeiraCasa(""); setBandeiraFora("");
+      setJogoData("");
       return;
     }
-    const jogo = JOGOS_COPA_2026.find((j) => j.id === id);
+
+    const jogo = jogos.find((j) => j.id === id);
     if (!jogo) return;
-    setTimeCasa(jogo.timeCasa);
-    setTimeFora(jogo.timeFora);
-    setBandeiraCasa(jogo.codigoCasa);
-    setBandeiraFora(jogo.codigoFora);
-    setJogoData(isoParaInput(jogo.data));
-    if (!titulo || !slugManual) {
-      const novoTitulo = `Bolão ${jogo.timeCasa} × ${jogo.timeFora}`;
+
+    setTimeCasa(jogo.mandante);
+    setTimeFora(jogo.visitante);
+    setBandeiraCasa(jogo.bandeira_mandante ?? "");
+    setBandeiraFora(jogo.bandeira_visitante ?? "");
+    setJogoData(dataHoraParaInput(jogo.data, jogo.horario));
+
+    if (!slugManual) {
+      const novoTitulo = `Bolão ${jogo.mandante} × ${jogo.visitante}`;
       setTitulo(novoTitulo);
       setSlug(gerarSlug(novoTitulo));
     }
   };
 
-  // Auto-gera slug quando o título muda (se não foi editado manualmente)
-  useEffect(() => {
-    if (!slugManual && titulo) setSlug(gerarSlug(titulo));
-  }, [titulo, slugManual]);
-
+  // ── Salvar bolão ────────────────────────────────────────────────────────────
   const salvar = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (salvando) return;
@@ -89,7 +130,6 @@ export default function NovoBolaoPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/login"); return; }
 
-    // Pega nome completo do Google OAuth
     const nomeResponsavel =
       user.user_metadata?.full_name ??
       user.user_metadata?.name ??
@@ -128,6 +168,9 @@ export default function NovoBolaoPage() {
     router.push(`/dashboard/${data.slug}`);
   };
 
+  // ── Agrupa jogos por fase para o <optgroup> ─────────────────────────────────
+  const fases = Array.from(new Set(jogos.map((j) => j.fase)));
+
   return (
     <div className="min-h-screen bg-gray-100">
 
@@ -145,25 +188,55 @@ export default function NovoBolaoPage() {
       <main className="max-w-2xl mx-auto px-4 py-6">
         <form onSubmit={salvar} className="flex flex-col gap-5">
 
-          {/* Selecionar jogo da Copa */}
+          {/* ── Selecionar jogo ──────────────────────────────────────────────── */}
           <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-5">
             <h2 className="font-black text-gray-800 mb-3">⚽ Jogo</h2>
 
             <label className="text-xs text-gray-500 font-bold block mb-1 uppercase tracking-wide">
               Selecionar da Copa 2026
             </label>
+
             <select
               value={jogoId}
               onChange={(e) => selecionarJogo(e.target.value === "" ? "" : Number(e.target.value))}
-              className="w-full border-2 border-gray-200 focus:border-green-500 rounded-xl px-3 py-2.5 text-gray-700 outline-none transition-colors mb-4"
+              disabled={loadingJogos}
+              className="w-full border-2 border-gray-200 focus:border-green-500 rounded-xl px-3 py-2.5 text-gray-700 outline-none transition-colors mb-4 disabled:opacity-50"
             >
-              <option value="">Selecione um jogo…</option>
-              {JOGOS_COPA_2026.map((j) => (
-                <option key={j.id} value={j.id}>
-                  {j.fase} — {j.id === 99 ? "Personalizado" : `${j.timeCasa} × ${j.timeFora}`}
-                </option>
+              <option value="">{loadingJogos ? "Carregando jogos…" : "Selecione um jogo…"}</option>
+
+              {fases.map((fase) => (
+                <optgroup key={fase} label={fase}>
+                  {jogos
+                    .filter((j) => j.fase === fase)
+                    .map((j) => (
+                      <option key={j.id} value={j.id}>
+                        {j.mandante} × {j.visitante} — {formatarDataExibicao(j.data, j.horario)}
+                      </option>
+                    ))}
+                </optgroup>
               ))}
+
+              <optgroup label="─────────────">
+                <option value={-1}>✏️ Personalizado</option>
+              </optgroup>
             </select>
+
+            {/* Preview bandeiras quando jogo selecionado */}
+            {bandeiraCasa && bandeiraFora && (
+              <div className="flex items-center justify-center gap-4 mb-4 bg-gray-50 rounded-xl py-3 border border-gray-100">
+                <div className="flex items-center gap-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={bandeiraCasa} alt={timeCasa} width={32} height={24} className="rounded shadow-sm" />
+                  <span className="font-bold text-gray-700 text-sm">{timeCasa}</span>
+                </div>
+                <span className="text-gray-400 font-black">×</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-gray-700 text-sm">{timeFora}</span>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={bandeiraFora} alt={timeFora} width={32} height={24} className="rounded shadow-sm" />
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -178,28 +251,26 @@ export default function NovoBolaoPage() {
               <div>
                 <label className="text-xs text-gray-500 font-bold block mb-1">Time visitante *</label>
                 <input
-                  type="text" placeholder="Ex: Haiti"
+                  type="text" placeholder="Ex: Marrocos"
                   value={timeFora} onChange={(e) => setTimeFora(e.target.value)}
                   required
                   className="w-full border-2 border-gray-200 focus:border-green-500 rounded-xl px-3 py-2 text-gray-800 outline-none"
                 />
               </div>
               <div>
-                <label className="text-xs text-gray-500 font-bold block mb-1">Código bandeira casa</label>
+                <label className="text-xs text-gray-500 font-bold block mb-1">URL bandeira casa</label>
                 <input
-                  type="text" placeholder="br, ar, fr…"
-                  value={bandeiraCasa} onChange={(e) => setBandeiraCasa(e.target.value.toLowerCase())}
-                  maxLength={2}
-                  className="w-full border-2 border-gray-200 focus:border-green-500 rounded-xl px-3 py-2 text-gray-800 outline-none font-mono"
+                  type="text" placeholder="https://flagcdn.com/w80/br.png"
+                  value={bandeiraCasa} onChange={(e) => setBandeiraCasa(e.target.value)}
+                  className="w-full border-2 border-gray-200 focus:border-green-500 rounded-xl px-3 py-2 text-gray-800 outline-none text-xs font-mono"
                 />
               </div>
               <div>
-                <label className="text-xs text-gray-500 font-bold block mb-1">Código bandeira visitante</label>
+                <label className="text-xs text-gray-500 font-bold block mb-1">URL bandeira visitante</label>
                 <input
-                  type="text" placeholder="ht, co, de…"
-                  value={bandeiraFora} onChange={(e) => setBandeiraFora(e.target.value.toLowerCase())}
-                  maxLength={2}
-                  className="w-full border-2 border-gray-200 focus:border-green-500 rounded-xl px-3 py-2 text-gray-800 outline-none font-mono"
+                  type="text" placeholder="https://flagcdn.com/w80/ma.png"
+                  value={bandeiraFora} onChange={(e) => setBandeiraFora(e.target.value)}
+                  className="w-full border-2 border-gray-200 focus:border-green-500 rounded-xl px-3 py-2 text-gray-800 outline-none text-xs font-mono"
                 />
               </div>
             </div>
@@ -215,7 +286,7 @@ export default function NovoBolaoPage() {
             </div>
           </div>
 
-          {/* Configurações do bolão */}
+          {/* ── Configurações do bolão ────────────────────────────────────────── */}
           <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-5">
             <h2 className="font-black text-gray-800 mb-3">🏆 Bolão</h2>
 
@@ -231,9 +302,7 @@ export default function NovoBolaoPage() {
               </div>
 
               <div>
-                <label className="text-xs text-gray-500 font-bold block mb-1 uppercase tracking-wide">
-                  Slug da URL *
-                </label>
+                <label className="text-xs text-gray-500 font-bold block mb-1 uppercase tracking-wide">Slug da URL *</label>
                 <div className="flex items-center gap-2">
                   <span className="text-gray-400 text-sm font-mono shrink-0">/bolao/</span>
                   <input
@@ -271,7 +340,7 @@ export default function NovoBolaoPage() {
             </div>
           </div>
 
-          {/* PIX */}
+          {/* ── PIX ──────────────────────────────────────────────────────────── */}
           <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-5">
             <h2 className="font-black text-gray-800 mb-3">💸 PIX (seus apostadores pagam aqui)</h2>
 
@@ -295,9 +364,6 @@ export default function NovoBolaoPage() {
                   rows={3}
                   className="w-full border-2 border-gray-200 focus:border-green-500 rounded-xl px-3 py-2 text-gray-800 outline-none font-mono text-xs resize-none"
                 />
-                <p className="text-gray-400 text-xs mt-1">
-                  Gere pelo app do banco → &quot;Cobrar via PIX&quot; → copie o código.
-                </p>
                 <p className="text-gray-400 text-xs mt-1">
                   A confirmação do PIX dos apostadores será manual pelo admin do bolão.
                 </p>
