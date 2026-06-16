@@ -118,20 +118,8 @@ export default function Home() {
             </div>
           </div>
 
-          {/* ── Celular + Taça ── */}
+          {/* ── Celular ── */}
           <div className="relative flex items-center justify-center py-4 md:py-0">
-            {/* Taça — oculta no mobile pequeno */}
-            <div className="absolute right-0 top-0 hidden w-36 opacity-75 pointer-events-none select-none sm:block md:w-44 lg:w-56">
-              <Image
-                src="/images/taca-copa.jpg"
-                alt="Taça Copa do Mundo"
-                width={224}
-                height={320}
-                className="object-contain drop-shadow-2xl w-full h-auto"
-                unoptimized
-              />
-            </div>
-            {/* Phone mockup */}
             <div className="relative z-10 scale-90 sm:scale-100">
               <PhoneMockup />
             </div>
