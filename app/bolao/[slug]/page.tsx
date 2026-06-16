@@ -265,7 +265,9 @@ export default function BolaoPublicoPage({
             <p className="text-green-200 text-xs font-semibold">
               👤 Organizado por{" "}
               <strong className="text-white">
-                {bolao.nome_responsavel.split(" ").slice(0, 2).join(" ")}
+                {bolao.nome_responsavel.includes("@")
+                  ? bolao.nome_responsavel.split("@")[0]
+                  : bolao.nome_responsavel.split(" ").slice(0, 2).join(" ")}
               </strong>
             </p>
           )}
@@ -724,6 +726,16 @@ export default function BolaoPublicoPage({
                     <p className="text-gray-500 text-xs text-center">
                       Valor: <strong className="text-green-700">R$ {Number(bolao.valor_cota).toFixed(2).replace(".", ",")}</strong> — confirmação pelo admin após o pagamento.
                     </p>
+
+                    {/* Aviso PIX duplicado */}
+                    <div className="w-full bg-amber-50 border border-amber-300 rounded-xl px-3 py-2.5">
+                      <p className="text-amber-800 font-black text-xs mb-1">⚠️ Atenção — mais de uma aposta?</p>
+                      <ul className="text-amber-700 text-xs space-y-1 leading-5">
+                        <li>• Bancos podem <strong>recusar PIX de mesmo valor</strong> em sequência</li>
+                        <li>• Se fizer múltiplas apostas, envie o <strong>valor total em um único PIX</strong></li>
+                        <li>• Ou aguarde <strong>30 minutos</strong> entre um PIX e outro do mesmo valor</li>
+                      </ul>
+                    </div>
                     {qrPixUrl && (
                       <>
                         {/* eslint-disable-next-line @next/next/no-img-element */}

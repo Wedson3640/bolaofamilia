@@ -130,10 +130,18 @@ export default function NovoBolaoPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/login"); return; }
 
+    // Busca o nome salvo em usuarios_bolao (evita usar e-mail como nome)
+    const { data: perfil } = await supabase
+      .from("usuarios_bolao")
+      .select("nome")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
     const nomeResponsavel =
       user.user_metadata?.full_name ??
       user.user_metadata?.name ??
-      user.email ??
+      perfil?.nome ??
+      user.email?.split("@")[0] ??
       null;
 
     const { data, error } = await supabase
@@ -358,6 +366,22 @@ export default function NovoBolaoPage() {
                 <label className="text-xs text-gray-500 font-bold block mb-1 uppercase tracking-wide">
                   PIX Copia e Cola <span className="text-gray-400 font-normal normal-case">(opcional — gera QR Code)</span>
                 </label>
+
+                {/* Orientação */}
+                <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-2">
+                  <p className="text-blue-800 text-xs font-bold mb-1">📱 Como gerar o código:</p>
+                  <ol className="text-blue-700 text-xs space-y-1 list-decimal list-inside leading-5">
+                    <li>Abra o app do seu banco</li>
+                    <li>Vá em <strong>PIX → Cobrar</strong> (ou &quot;Receber&quot;)</li>
+                    <li>Digite o valor da cota do bolão: <strong>R$ {valorCota || "—"}</strong></li>
+                    <li>Gere a cobrança e copie o código <strong>&quot;Pix Copia e Cola&quot;</strong></li>
+                    <li>Cole o código no campo abaixo</li>
+                  </ol>
+                  <p className="text-blue-600 text-xs mt-2 font-semibold">
+                    ⚠️ O QR Code ficará visível para os apostadores na página do bolão.
+                  </p>
+                </div>
+
                 <textarea
                   placeholder="00020101021226530014br.gov.bcb.pix…"
                   value={payloadPix} onChange={(e) => setPayloadPix(e.target.value)}
