@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Open_Sans } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const openSans = Open_Sans({ subsets: ["latin"], variable: "--font-open-sans" });
 
 export const metadata: Metadata = {
   title: "bolaofamilia.online | Crie seu bolão da Copa em minutos",
@@ -34,7 +35,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR">
-      <body className={`${inter.variable} font-sans antialiased`} suppressHydrationWarning>{children}</body>
+      <body className={`${inter.variable} ${openSans.variable} font-sans antialiased`} suppressHydrationWarning>{children}</body>
     </html>
   );
 }

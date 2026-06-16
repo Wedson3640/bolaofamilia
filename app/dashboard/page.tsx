@@ -113,16 +113,27 @@ export default async function DashboardPage() {
                   </div>
                 </div>
                 {/* Link de compartilhamento */}
-                <div className="border-t border-gray-100 px-5 py-2.5 bg-gray-50 flex items-center gap-2">
-                  <span className="text-gray-400 text-xs font-mono flex-1 truncate">
-                    /bolao/{b.slug}
-                  </span>
+                <div className="border-t border-gray-100 px-5 py-3 bg-gray-50">
                   <CopiarLink slug={b.slug} />
                 </div>
               </div>
             ))}
           </div>
         )}
+        {/* Logout inferior */}
+        <div className="mt-8 pb-8 flex justify-center">
+          <form action="/api/logout" method="POST">
+            <button
+              type="submit"
+              className="flex items-center gap-2 text-gray-400 hover:text-red-500 text-sm font-semibold px-4 py-2 rounded-xl hover:bg-red-50 border border-transparent hover:border-red-200 transition-all"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Sair da conta
+            </button>
+          </form>
+        </div>
       </main>
     </div>
   );

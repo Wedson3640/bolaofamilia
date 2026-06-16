@@ -279,16 +279,18 @@ export default function Home() {
           <div className="absolute left-4 bottom-3 text-4xl opacity-20 select-none">⚽</div>
           <div className="absolute left-12 top-4 text-3xl opacity-25 select-none">🏆</div>
 
-          <div className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+          <div className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between font-[family-name:var(--font-open-sans)]">
             <div>
               <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl md:text-5xl">
                 Pronto para criar seu bolão?
               </h2>
-              <p className="mt-3 text-base font-semibold leading-7 text-emerald-100/80 md:text-lg md:leading-8">
-                Configure em minutos, compartilhe o link e torça junto com sua família!
+              <p className="mt-4 text-3xl font-black leading-tight text-emerald-300 sm:text-4xl md:text-5xl">
+                Tenha acesso a mais de<br />
+                <span className="text-white">100 jogos da Copa</span>
               </p>
-              <p className="mt-2 flex items-center gap-2 text-sm font-black text-slate-400">
-                <span>🔒</span> Acesso único por R$ 49,90
+              <p className="mt-3 text-base font-semibold text-emerald-100/80 md:text-lg">
+                para fazer seu bolão por{" "}
+                <strong className="text-emerald-400">R$ 49,90</strong>
               </p>
             </div>
             <CriarAgoraButton className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-emerald-400 px-8 py-4 text-lg font-black text-[#050816] shadow-glow transition hover:scale-[1.03] hover:bg-emerald-300 sm:w-auto md:px-9 md:py-5">
