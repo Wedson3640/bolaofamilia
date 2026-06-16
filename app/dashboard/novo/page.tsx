@@ -63,7 +63,15 @@ export default function NovoBolaoPage() {
   const [taxaAdmin,    setTaxaAdmin]    = useState("25");
   const [chavePix,     setChavePix]     = useState("");
   const [payloadPix,   setPayloadPix]   = useState("");
-  const [slugManual,   setSlugManual]   = useState(false);
+  const [slugManual,    setSlugManual]    = useState(false);
+  const [userIdPrefix,  setUserIdPrefix]  = useState("");
+
+  // ── Carrega prefixo do user ID (6 chars do UUID) ───────────────────────────
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setUserIdPrefix(user.id.replace(/-/g, "").slice(0, 6));
+    });
+  }, []);
 
   // ── Carrega jogos do banco ──────────────────────────────────────────────────
   useEffect(() => {
@@ -81,8 +89,11 @@ export default function NovoBolaoPage() {
 
   // ── Auto-gera slug quando título muda ──────────────────────────────────────
   useEffect(() => {
-    if (!slugManual && titulo) setSlug(gerarSlug(titulo));
-  }, [titulo, slugManual]);
+    if (!slugManual && titulo) {
+      const base = gerarSlug(titulo).slice(0, 40);
+      setSlug(userIdPrefix ? `${base}-${userIdPrefix}` : base);
+    }
+  }, [titulo, slugManual, userIdPrefix]);
 
   // ── Seleciona jogo e auto-preenche campos ───────────────────────────────────
   const selecionarJogo = (id: number | "") => {
@@ -110,7 +121,8 @@ export default function NovoBolaoPage() {
     if (!slugManual) {
       const novoTitulo = `Bolão ${jogo.mandante} × ${jogo.visitante}`;
       setTitulo(novoTitulo);
-      setSlug(gerarSlug(novoTitulo));
+      const base = gerarSlug(novoTitulo).slice(0, 40);
+      setSlug(userIdPrefix ? `${base}-${userIdPrefix}` : base);
     }
   };
 
