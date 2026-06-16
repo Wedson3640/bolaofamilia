@@ -9,6 +9,10 @@ export const metadata: Metadata = {
   description:
     "Crie seu bolão online, compartilhe no WhatsApp, acompanhe palpites e ranking em tempo real durante a Copa.",
   metadataBase: new URL("https://bolaofamilia.online"),
+  icons: {
+    icon: "/icon.png",
+    apple: "/icon.png",
+  },
   openGraph: {
     title: "bolaofamilia.online",
     description: "Configure seu bolão em minutos e compartilhe no WhatsApp.",
