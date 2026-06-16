@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { CopiarLink } from "./CopiarLink";
+import { DeletarBolao } from "./DeletarBolao";
 import type { BolaoRow } from "@/lib/supabase";
 
 function formatarData(iso: string) {
@@ -110,6 +111,7 @@ export default async function DashboardPage() {
                         👁 Ver público
                       </button>
                     </Link>
+                    <DeletarBolao id={b.id} titulo={b.titulo} />
                   </div>
                 </div>
                 {/* Link de compartilhamento */}

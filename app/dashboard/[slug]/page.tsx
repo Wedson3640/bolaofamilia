@@ -195,6 +195,22 @@ export default function GerenciarBolaoPage() {
           </div>
         </div>
 
+        {/* Instrução de validação manual */}
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex gap-3">
+          <span className="text-2xl shrink-0 mt-0.5">📲</span>
+          <div>
+            <p className="text-amber-800 font-black text-sm mb-1">Como validar os pagamentos</p>
+            <ol className="text-amber-700 text-xs space-y-1 leading-5 list-decimal list-inside">
+              <li>Abra o app do seu banco e confira os PIX recebidos</li>
+              <li>Identifique o apostador pelo nome ou valor da cota</li>
+              <li>Na lista abaixo, clique em <strong>&quot;✅ Marcar Pago&quot;</strong> ao lado do nome dele</li>
+            </ol>
+            <p className="text-amber-600 text-xs mt-1.5 font-semibold">
+              ⚠️ A confirmação é manual — somente você vê os pagamentos recebidos na sua conta.
+            </p>
+          </div>
+        </div>
+
         {/* Pendentes em destaque */}
         {pendentes.length > 0 && (
           <div className="bg-red-50 border-2 border-red-200 rounded-2xl overflow-hidden">

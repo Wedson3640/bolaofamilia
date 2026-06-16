@@ -63,7 +63,6 @@ export default function NovoBolaoPage() {
   const [taxaAdmin,    setTaxaAdmin]    = useState("25");
   const [chavePix,     setChavePix]     = useState("");
   const [payloadPix,   setPayloadPix]   = useState("");
-  const [slugManual,    setSlugManual]    = useState(false);
   const [userIdPrefix,  setUserIdPrefix]  = useState("");
 
   // ── Carrega prefixo do user ID (6 chars do UUID) ───────────────────────────
@@ -87,13 +86,15 @@ export default function NovoBolaoPage() {
       });
   }, []);
 
-  // ── Auto-gera slug quando título muda ──────────────────────────────────────
+  // ── Auto-gera título e slug quando times mudam ─────────────────────────────
   useEffect(() => {
-    if (!slugManual && titulo) {
-      const base = gerarSlug(titulo).slice(0, 40);
+    if (timeCasa && timeFora) {
+      const novoTitulo = `Bolão ${timeCasa} × ${timeFora}`;
+      setTitulo(novoTitulo);
+      const base = gerarSlug(novoTitulo).slice(0, 40);
       setSlug(userIdPrefix ? `${base}-${userIdPrefix}` : base);
     }
-  }, [titulo, slugManual, userIdPrefix]);
+  }, [timeCasa, timeFora, userIdPrefix]);
 
   // ── Seleciona jogo e auto-preenche campos ───────────────────────────────────
   const selecionarJogo = (id: number | "") => {
@@ -106,6 +107,7 @@ export default function NovoBolaoPage() {
       setTimeCasa(""); setTimeFora("");
       setBandeiraCasa(""); setBandeiraFora("");
       setJogoData("");
+      setTitulo(""); setSlug("");
       return;
     }
 
@@ -117,13 +119,7 @@ export default function NovoBolaoPage() {
     setBandeiraCasa(jogo.bandeira_mandante ?? "");
     setBandeiraFora(jogo.bandeira_visitante ?? "");
     setJogoData(dataHoraParaInput(jogo.data, jogo.horario));
-
-    if (!slugManual) {
-      const novoTitulo = `Bolão ${jogo.mandante} × ${jogo.visitante}`;
-      setTitulo(novoTitulo);
-      const base = gerarSlug(novoTitulo).slice(0, 40);
-      setSlug(userIdPrefix ? `${base}-${userIdPrefix}` : base);
-    }
+    // título e slug são gerados automaticamente pelo useEffect em timeCasa/timeFora
   };
 
   // ── Salvar bolão ────────────────────────────────────────────────────────────
@@ -277,22 +273,6 @@ export default function NovoBolaoPage() {
                   className="w-full border-2 border-gray-200 focus:border-green-500 rounded-xl px-3 py-2 text-gray-800 outline-none"
                 />
               </div>
-              <div>
-                <label className="text-xs text-gray-500 font-bold block mb-1">URL bandeira casa</label>
-                <input
-                  type="text" placeholder="https://flagcdn.com/w80/br.png"
-                  value={bandeiraCasa} onChange={(e) => setBandeiraCasa(e.target.value)}
-                  className="w-full border-2 border-gray-200 focus:border-green-500 rounded-xl px-3 py-2 text-gray-800 outline-none text-xs font-mono"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 font-bold block mb-1">URL bandeira visitante</label>
-                <input
-                  type="text" placeholder="https://flagcdn.com/w80/ma.png"
-                  value={bandeiraFora} onChange={(e) => setBandeiraFora(e.target.value)}
-                  className="w-full border-2 border-gray-200 focus:border-green-500 rounded-xl px-3 py-2 text-gray-800 outline-none text-xs font-mono"
-                />
-              </div>
             </div>
 
             <div className="mt-3">
@@ -312,29 +292,20 @@ export default function NovoBolaoPage() {
 
             <div className="flex flex-col gap-3">
               <div>
-                <label className="text-xs text-gray-500 font-bold block mb-1 uppercase tracking-wide">Título *</label>
-                <input
-                  type="text" placeholder="Ex: Bolão Copa 2026 - Turma do Zé"
-                  value={titulo} onChange={(e) => setTitulo(e.target.value)}
-                  required maxLength={80}
-                  className="w-full border-2 border-gray-200 focus:border-green-500 rounded-xl px-3 py-2 text-gray-800 outline-none"
-                />
+                <label className="text-xs text-gray-500 font-bold block mb-1 uppercase tracking-wide">Título</label>
+                <div className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-3 py-2 text-gray-700 font-semibold min-h-[42px] flex items-center">
+                  {titulo || <span className="text-gray-400 font-normal text-sm">Gerado ao selecionar o jogo</span>}
+                </div>
               </div>
 
               <div>
-                <label className="text-xs text-gray-500 font-bold block mb-1 uppercase tracking-wide">Slug da URL *</label>
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-400 text-sm font-mono shrink-0">/bolao/</span>
-                  <input
-                    type="text" placeholder="meu-bolao-2026"
-                    value={slug}
-                    onChange={(e) => { setSlug(e.target.value); setSlugManual(true); }}
-                    required maxLength={50}
-                    pattern="[a-z0-9\-]+"
-                    className="flex-1 border-2 border-gray-200 focus:border-green-500 rounded-xl px-3 py-2 text-gray-800 outline-none font-mono text-sm"
-                  />
+                <label className="text-xs text-gray-500 font-bold block mb-1 uppercase tracking-wide">Link do Bolão</label>
+                <div className="flex items-center gap-1 bg-gray-50 border-2 border-gray-100 rounded-xl px-3 py-2 min-h-[42px]">
+                  <span className="text-gray-400 text-xs font-mono shrink-0">…/bolao/</span>
+                  <span className="text-green-700 font-mono text-sm font-bold break-all">
+                    {slug || <span className="text-gray-400 font-normal">gerado-automaticamente</span>}
+                  </span>
                 </div>
-                <p className="text-gray-400 text-xs mt-1">Só letras minúsculas, números e hífens.</p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -400,8 +371,8 @@ export default function NovoBolaoPage() {
                   rows={3}
                   className="w-full border-2 border-gray-200 focus:border-green-500 rounded-xl px-3 py-2 text-gray-800 outline-none font-mono text-xs resize-none"
                 />
-                <p className="text-gray-400 text-xs mt-1">
-                  A confirmação do PIX dos apostadores será manual pelo admin do bolão.
+                <p className="text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs font-semibold mt-1">
+                  ⚠️ A confirmação de cada pagamento é <strong>manual</strong>: você confere o PIX no seu banco e marca como pago no painel do bolão.
                 </p>
               </div>
             </div>
